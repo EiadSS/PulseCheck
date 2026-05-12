@@ -1,6 +1,6 @@
 # PulseCheck
 
-PulseCheck is a full-stack uptime monitoring platform built as a production-style portfolio project. Users can register, add website/API monitors, collect scheduled health checks, track incidents, view reliability metrics, receive alerts, and share a public status page.
+PulseCheck is an uptime monitoring platform. Users can register, add website/API monitors, collect scheduled health checks, track incidents, view reliability metrics, receive alerts, and share a public status page.
 
 ## Features
 
