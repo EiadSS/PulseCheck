@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #172033;
+  background: #f6f8fb;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2;
+}

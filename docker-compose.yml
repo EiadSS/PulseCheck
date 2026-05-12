@@ -1,0 +1,63 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: pulsecheck
+      POSTGRES_USER: pulsecheck
+      POSTGRES_PASSWORD: pulsecheck
+    ports:
+      - "5432:5432"
+    volumes:
+      - pulsecheck-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulsecheck -d pulsecheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/PulseCheck.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=pulsecheck;Username=pulsecheck;Password=pulsecheck
+      Jwt__Issuer: PulseCheck
+      Jwt__Audience: PulseCheck
+      Jwt__Secret: local-docker-secret-change-before-deploy-32
+      PulseCheck__AllowedOrigins: http://localhost:5173
+      PulseCheck__FrontendBaseUrl: ${FRONTEND_BASE_URL:-http://localhost:5173}
+      PulseCheck__AdminEmails: ${PULSECHECK_ADMIN_EMAILS:-}
+      PulseCheck__AutoMigrate: "true"
+      PulseCheck__WorkerIntervalSeconds: "10"
+      Smtp__Host: ${SMTP_HOST:-smtp.resend.com}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
+      Smtp__Username: ${SMTP_USERNAME:-resend}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__FromEmail: ${SMTP_FROM_EMAIL:-}
+      Smtp__FromName: ${SMTP_FROM_NAME:-PulseCheck}
+      Resend__ApiKey: ${RESEND_API_KEY:-}
+      Resend__FromEmail: ${RESEND_FROM_EMAIL:-}
+      Resend__FromName: ${RESEND_FROM_NAME:-PulseCheck}
+      Resend__ApiUrl: ${RESEND_API_URL:-https://api.resend.com/emails}
+    ports:
+      - "5080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      VITE_API_URL: http://localhost:5080
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  pulsecheck-postgres:
