@@ -29,7 +29,7 @@ describe('AnalyticsPage', () => {
     expect(screen.getByText('Active users')).toBeInTheDocument();
     expect(screen.getByText('Page views')).toBeInTheDocument();
     expect(screen.getByText('Email alert health')).toBeInTheDocument();
-    expect(screen.getByText('/dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('owner@example.com')).toBeInTheDocument();
   });
 
@@ -70,7 +70,8 @@ describe('AnalyticsPage', () => {
 
     expect(await screen.findByText('Top app pages')).toBeInTheDocument();
     expect(screen.getByText('Monitor activity')).toBeInTheDocument();
-    expect(screen.getByText('/dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Public status page')).toBeInTheDocument();
     expect(screen.getByText('Marketing Site')).toBeInTheDocument();
     expect(screen.getByText('https://example.com')).toBeInTheDocument();
   });

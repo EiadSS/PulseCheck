@@ -144,7 +144,12 @@ export function AnalyticsPage() {
                   <EmptyState message="No page views collected yet." compact />
                 ) : (
                   summary.topPages.map((page) => (
-                    <ProgressRow key={page.path} label={page.path} value={page.views} max={summary.topPages[0]?.views ?? 1} />
+                    <ProgressRow
+                      key={page.path}
+                      label={formatAppPageLabel(page.path)}
+                      value={page.views}
+                      max={summary.topPages[0]?.views ?? 1}
+                    />
                   ))
                 )}
               </div>
@@ -342,4 +347,19 @@ function formatDateTime(value: string) {
     hour: 'numeric',
     minute: '2-digit'
   });
+}
+
+function formatAppPageLabel(path: string) {
+  if (path === '/') return 'Landing page';
+  if (path === '/dashboard') return 'Dashboard';
+  if (path === '/analytics') return 'Analytics';
+  if (path === '/slo') return 'Reliability';
+  if (path === '/login') return 'Sign in';
+  if (path === '/register') return 'Create account';
+  if (path === '/monitors/new') return 'New monitor';
+  if (path.startsWith('/monitors/') && path.endsWith('/edit')) return 'Edit monitor';
+  if (path.startsWith('/monitors/')) return 'Monitor details';
+  if (path.startsWith('/status/')) return 'Public status page';
+
+  return path;
 }
