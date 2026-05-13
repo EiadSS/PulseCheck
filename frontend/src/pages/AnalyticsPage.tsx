@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ApiError, api } from '../api/client';
 import { MetricCard } from '../components/MetricCard';
+import { StatusBadge } from '../components/StatusBadge';
 import type { AnalyticsRange, AnalyticsSummary, MonitorStatus, NotificationEmailStatus } from '../types';
 
 const ranges: AnalyticsRange[] = ['24h', '7d', '30d'];
@@ -136,8 +137,8 @@ export function AnalyticsPage() {
             </section>
 
             <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-950">Top pages</h2>
-              <p className="mt-1 text-sm text-slate-500">Most viewed routes in this window.</p>
+              <h2 className="text-lg font-semibold text-slate-950">Top app pages</h2>
+              <p className="mt-1 text-sm text-slate-500">Most viewed PulseCheck routes, such as dashboard, analytics, auth, and status pages.</p>
               <div className="mt-4 space-y-3">
                 {summary.topPages.length === 0 ? (
                   <EmptyState message="No page views collected yet." compact />
@@ -149,6 +150,50 @@ export function AnalyticsPage() {
               </div>
             </section>
           </div>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2">
+              <MonitorCheck className="h-5 w-5 text-sky-600" aria-hidden="true" />
+              <h2 className="text-lg font-semibold text-slate-950">Monitor activity</h2>
+            </div>
+            <p className="mt-1 text-sm text-slate-500">Monitored URLs with check activity in the selected window.</p>
+            <div className="mt-4 overflow-x-auto">
+              {summary.monitorActivity.filter((monitor) => monitor.checkCount > 0).length === 0 ? (
+                <EmptyState message="Monitor activity appears after scheduled or manual checks run." compact />
+              ) : (
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead>
+                    <tr className="text-left text-xs font-semibold uppercase text-slate-500">
+                      <th className="py-2 pr-4">Monitor</th>
+                      <th className="py-2 pr-4">URL</th>
+                      <th className="py-2 pr-4">Status</th>
+                      <th className="py-2 pr-4">Checks</th>
+                      <th className="py-2 pr-4">Last checked</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {summary.monitorActivity
+                      .filter((monitor) => monitor.checkCount > 0)
+                      .map((monitor) => (
+                        <tr key={monitor.id}>
+                          <td className="py-3 pr-4 font-semibold text-slate-950">{monitor.name}</td>
+                          <td className="max-w-md truncate py-3 pr-4 text-slate-600" title={monitor.url}>
+                            {monitor.url}
+                          </td>
+                          <td className="py-3 pr-4">
+                            <StatusBadge status={monitor.currentStatus} />
+                          </td>
+                          <td className="py-3 pr-4 font-semibold text-slate-950">{monitor.checkCount}</td>
+                          <td className="py-3 pr-4 text-slate-600">
+                            {monitor.lastCheckedAt ? formatDateTime(monitor.lastCheckedAt) : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
 
           <div className="grid gap-6 xl:grid-cols-3">
             <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

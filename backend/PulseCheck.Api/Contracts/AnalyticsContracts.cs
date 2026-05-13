@@ -27,6 +27,7 @@ public sealed record AnalyticsSummaryDto(
     IReadOnlyCollection<AnalyticsTopPageDto> TopPages,
     IReadOnlyCollection<AnalyticsMonitorStatusCountDto> CheckStatusCounts,
     IReadOnlyCollection<AnalyticsEmailStatusCountDto> EmailStatusCounts,
+    IReadOnlyCollection<AnalyticsMonitorActivityDto> MonitorActivity,
     IReadOnlyCollection<AnalyticsSeriesPointDto> NewUsersOverTime,
     IReadOnlyCollection<AnalyticsRecentSignupDto> RecentSignups);
 
@@ -35,6 +36,14 @@ public sealed record AnalyticsTopPageDto(string Path, int Views);
 public sealed record AnalyticsMonitorStatusCountDto(MonitorStatus Status, int Count);
 
 public sealed record AnalyticsEmailStatusCountDto(NotificationEmailStatus Status, int Count);
+
+public sealed record AnalyticsMonitorActivityDto(
+    Guid Id,
+    string Name,
+    string Url,
+    MonitorStatus CurrentStatus,
+    int CheckCount,
+    DateTimeOffset? LastCheckedAt);
 
 public sealed record AnalyticsSeriesPointDto(DateTimeOffset PeriodStart, int Count);
 

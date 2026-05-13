@@ -195,6 +195,7 @@ export interface AnalyticsSummary {
   topPages: AnalyticsTopPage[];
   checkStatusCounts: AnalyticsMonitorStatusCount[];
   emailStatusCounts: AnalyticsEmailStatusCount[];
+  monitorActivity: AnalyticsMonitorActivity[];
   newUsersOverTime: AnalyticsSeriesPoint[];
   recentSignups: AnalyticsRecentSignup[];
 }
@@ -212,6 +213,15 @@ export interface AnalyticsMonitorStatusCount {
 export interface AnalyticsEmailStatusCount {
   status: NotificationEmailStatus;
   count: number;
+}
+
+export interface AnalyticsMonitorActivity {
+  id: string;
+  name: string;
+  url: string;
+  currentStatus: MonitorStatus;
+  checkCount: number;
+  lastCheckedAt?: string | null;
 }
 
 export interface AnalyticsSeriesPoint {

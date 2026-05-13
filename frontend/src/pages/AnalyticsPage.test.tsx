@@ -52,6 +52,7 @@ describe('AnalyticsPage', () => {
       newUsers: 0,
       pageViews: 0,
       topPages: [],
+      monitorActivity: [],
       newUsersOverTime: summary.newUsersOverTime.map((point) => ({ ...point, count: 0 })),
       recentSignups: []
     });
@@ -60,7 +61,18 @@ describe('AnalyticsPage', () => {
 
     expect(await screen.findByText('No page views collected yet.')).toBeInTheDocument();
     expect(screen.getByText('No new users in this window yet.')).toBeInTheDocument();
+    expect(screen.getByText('Monitor activity appears after scheduled or manual checks run.')).toBeInTheDocument();
     expect(screen.getByText('No accounts have been created yet.')).toBeInTheDocument();
+  });
+
+  it('labels app routes separately from monitored URL activity', async () => {
+    render(<AnalyticsPage />);
+
+    expect(await screen.findByText('Top app pages')).toBeInTheDocument();
+    expect(screen.getByText('Monitor activity')).toBeInTheDocument();
+    expect(screen.getByText('/dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Marketing Site')).toBeInTheDocument();
+    expect(screen.getByText('https://example.com')).toBeInTheDocument();
   });
 });
 
@@ -92,6 +104,16 @@ const summary = {
   emailStatusCounts: [
     { status: 'Sent', count: 3 },
     { status: 'Failed', count: 1 }
+  ],
+  monitorActivity: [
+    {
+      id: 'monitor-1',
+      name: 'Marketing Site',
+      url: 'https://example.com',
+      currentStatus: 'Up',
+      checkCount: 4,
+      lastCheckedAt: '2026-05-12T00:00:00Z'
+    }
   ],
   newUsersOverTime: [
     { periodStart: '2026-05-06T00:00:00Z', count: 0 },

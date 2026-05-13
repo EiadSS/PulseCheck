@@ -924,6 +924,33 @@ static async Task<AnalyticsSummaryDto> BuildAnalyticsSummaryAsync(
     var emailStatusCounts = emailStatusRows
         .Select(item => new AnalyticsEmailStatusCountDto(item.Status, item.Count))
         .ToList();
+    var monitorActivityRows = await db.Monitors
+        .AsNoTracking()
+        .Select(monitor => new
+        {
+            monitor.Id,
+            monitor.Name,
+            monitor.Url,
+            monitor.CurrentStatus,
+            CheckCount = monitor.Checks.Count(check => check.CheckedAt >= since),
+            LastCheckedAt = monitor.Checks
+                .Where(check => check.CheckedAt >= since)
+                .Select(check => (DateTimeOffset?)check.CheckedAt)
+                .Max()
+        })
+        .OrderByDescending(monitor => monitor.CheckCount)
+        .ThenBy(monitor => monitor.Name)
+        .Take(8)
+        .ToListAsync(cancellationToken);
+    var monitorActivity = monitorActivityRows
+        .Select(monitor => new AnalyticsMonitorActivityDto(
+            monitor.Id,
+            monitor.Name,
+            monitor.Url,
+            monitor.CurrentStatus,
+            monitor.CheckCount,
+            monitor.LastCheckedAt))
+        .ToList();
     var signupTimes = await db.Users
         .AsNoTracking()
         .Where(user => user.CreatedAt >= since)
@@ -960,6 +987,7 @@ static async Task<AnalyticsSummaryDto> BuildAnalyticsSummaryAsync(
         topPages,
         checkStatusCounts,
         emailStatusCounts,
+        monitorActivity,
         BuildSignupSeries(signupTimes, range, since, now),
         recentSignups);
 }

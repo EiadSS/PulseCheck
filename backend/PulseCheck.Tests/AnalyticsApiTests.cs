@@ -106,6 +106,12 @@ public sealed class AnalyticsApiTests
         Assert.Contains(summary.CheckStatusCounts, item => item.Status == MonitorStatus.Error && item.Count == 1);
         Assert.Contains(summary.EmailStatusCounts, item => item.Status == NotificationEmailStatus.Sent && item.Count == 1);
         Assert.Contains(summary.EmailStatusCounts, item => item.Status == NotificationEmailStatus.Failed && item.Count == 1);
+        Assert.Contains(summary.MonitorActivity, monitor =>
+            monitor.Name == "Analytics API" &&
+            monitor.Url == "https://example.com/health" &&
+            monitor.CurrentStatus == MonitorStatus.Error &&
+            monitor.CheckCount == 2 &&
+            monitor.LastCheckedAt is not null);
         Assert.Contains(summary.RecentSignups, signup => signup.Email == "owner@example.com");
         Assert.Contains(summary.NewUsersOverTime, point => point.Count > 0);
     }

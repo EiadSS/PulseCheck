@@ -18,6 +18,9 @@ import type {
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5080';
 const tokenKey = 'pulsecheck.token';
+const invalidApiBaseUrl =
+  API_BASE_URL.trim().length > 0 && !API_BASE_URL.startsWith('http://') && !API_BASE_URL.startsWith('https://');
+const apiUnavailableMessage = 'Unable to reach PulseCheck API. Please try again shortly.';
 
 export class ApiError extends Error {
   constructor(
@@ -42,7 +45,11 @@ export function clearStoredToken() {
   localStorage.removeItem(tokenKey);
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  if (invalidApiBaseUrl) {
+    throw new ApiError(apiUnavailableMessage, [apiUnavailableMessage]);
+  }
+
   const token = getStoredToken();
   const headers = new Headers(options.headers);
 
@@ -54,10 +61,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers
+    });
+  } catch {
+    throw new ApiError(apiUnavailableMessage, [apiUnavailableMessage]);
+  }
 
   if (response.status === 204) {
     return undefined as T;
@@ -172,7 +184,7 @@ export const api = {
 
 function getErrorMessages(body: unknown) {
   if (typeof body === 'string') {
-    return [body].filter(Boolean);
+    return [cleanRawErrorMessage(body)].filter(Boolean);
   }
 
   if (!body || typeof body !== 'object') {
@@ -195,6 +207,21 @@ function getErrorMessages(body: unknown) {
   }
 
   return [problem.detail ?? problem.title].filter(Boolean) as string[];
+}
+
+function cleanRawErrorMessage(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes('not_found') ||
+    normalized.includes('the page could not be found') ||
+    normalized.includes('404') ||
+    normalized.includes('failed to fetch')
+  ) {
+    return apiUnavailableMessage;
+  }
+
+  return message;
 }
 
 function cleanValidationMessage(field: string, message: string) {
