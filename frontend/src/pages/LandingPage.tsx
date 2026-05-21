@@ -27,8 +27,8 @@ export function LandingPage() {
               Monitor websites and APIs, track uptime, detect slowdowns, and view incident history.
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">
-              A production-style uptime monitoring dashboard for teams that need clear service health, useful history,
-              and recruiter-friendly polish.
+              Know when a website or API goes down, slows down, or needs attention, with alerts and history your team
+              can act on.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link

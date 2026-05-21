@@ -35,7 +35,7 @@ describe('SloPage', () => {
     });
   });
 
-  it('renders recruiter-friendly reliability copy', async () => {
+  it('renders clear reliability copy', async () => {
     render(
       <MemoryRouter>
         <SloPage />

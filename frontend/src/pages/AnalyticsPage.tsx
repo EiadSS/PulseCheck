@@ -61,10 +61,10 @@ export function AnalyticsPage() {
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <p className="text-sm font-semibold uppercase text-sky-700">Owner analytics</p>
+          <p className="text-sm font-semibold uppercase text-sky-700">Admin analytics</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-normal text-slate-950">Analytics</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-            Lightweight first-party usage signals for your PulseCheck deployment.
+            Track product usage, monitor activity, and alert health for PulseCheck.
           </p>
         </div>
         <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
