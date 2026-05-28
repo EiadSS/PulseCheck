@@ -179,7 +179,7 @@ export interface PublicIncident {
   resolvedAt?: string | null;
 }
 
-export type AnalyticsRange = '24h' | '7d' | '30d';
+export type AnalyticsRange = '24h' | '7d' | '30d' | 'all';
 
 export interface AnalyticsSummary {
   range: AnalyticsRange;

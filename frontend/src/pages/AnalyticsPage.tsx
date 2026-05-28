@@ -6,7 +6,12 @@ import { MetricCard } from '../components/MetricCard';
 import { StatusBadge } from '../components/StatusBadge';
 import type { AnalyticsRange, AnalyticsSummary, MonitorStatus, NotificationEmailStatus } from '../types';
 
-const ranges: AnalyticsRange[] = ['24h', '7d', '30d'];
+const ranges: { value: AnalyticsRange; label: string }[] = [
+  { value: '24h', label: '24h' },
+  { value: '7d', label: '7d' },
+  { value: '30d', label: '30d' },
+  { value: 'all', label: 'All time' }
+];
 const checkStatusOrder: MonitorStatus[] = ['Up', 'Degraded', 'Error', 'Down', 'Paused'];
 
 export function AnalyticsPage() {
@@ -70,14 +75,14 @@ export function AnalyticsPage() {
         <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
           {ranges.map((item) => (
             <button
-              key={item}
+              key={item.value}
               type="button"
-              onClick={() => setRange(item)}
+              onClick={() => setRange(item.value)}
               className={`focus-ring rounded-md px-3 py-2 text-sm font-semibold ${
-                range === item ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
+                range === item.value ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
               }`}
             >
-              {item}
+              {item.label}
             </button>
           ))}
         </div>
@@ -113,10 +118,10 @@ export function AnalyticsPage() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-950">New users over time</h2>
-                  <p className="mt-1 text-sm text-slate-500">Account creation trend for the selected window.</p>
+                  <p className="mt-1 text-sm text-slate-500">Account creation trend for the selected range.</p>
                 </div>
                 <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">
-                  {summary.range}
+                  {formatRangeLabel(summary.range)}
                 </span>
               </div>
               <div className="mt-4 h-72">
@@ -161,7 +166,7 @@ export function AnalyticsPage() {
               <MonitorCheck className="h-5 w-5 text-sky-600" aria-hidden="true" />
               <h2 className="text-lg font-semibold text-slate-950">Monitor activity</h2>
             </div>
-            <p className="mt-1 text-sm text-slate-500">Monitored URLs with check activity in the selected window.</p>
+            <p className="mt-1 text-sm text-slate-500">Monitored URLs with check activity in the selected range.</p>
             <div className="mt-4 overflow-x-auto">
               {summary.monitorActivity.filter((monitor) => monitor.checkCount > 0).length === 0 ? (
                 <EmptyState message="Monitor activity appears after scheduled or manual checks run." compact />
@@ -337,7 +342,17 @@ function formatBucket(value: string, range: AnalyticsRange) {
     return date.toLocaleTimeString(undefined, { hour: 'numeric' });
   }
 
+  if (range === 'all') {
+    return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  }
+
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatRangeLabel(range: AnalyticsRange) {
+  if (range === 'all') return 'All time';
+
+  return range;
 }
 
 function formatDateTime(value: string) {

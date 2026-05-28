@@ -46,6 +46,19 @@ describe('AnalyticsPage', () => {
     });
   });
 
+  it('loads all-time analytics when all time is selected', async () => {
+    const user = userEvent.setup();
+
+    render(<AnalyticsPage />);
+
+    await screen.findByRole('heading', { name: /^analytics$/i });
+    await user.click(screen.getByRole('button', { name: 'All time' }));
+
+    await waitFor(() => {
+      expect(apiMock.analyticsSummary).toHaveBeenCalledWith('all');
+    });
+  });
+
   it('shows empty states when there is no analytics data', async () => {
     apiMock.analyticsSummary.mockResolvedValue({
       ...summary,

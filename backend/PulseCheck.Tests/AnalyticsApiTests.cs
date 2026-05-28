@@ -128,6 +128,33 @@ public sealed class AnalyticsApiTests
         Assert.Equal("7d", summary.GetProperty("range").GetString());
     }
 
+    [Fact]
+    public async Task AnalyticsSummary_AllTimeIncludesOlderActivity()
+    {
+        await using var factory = new AuthApiFactory();
+        var client = factory.CreateClient();
+
+        var owner = await RegisterAndAuthorizeAsync(client, "owner@example.com", "Owner");
+        var member = await RegisterAndAuthorizeAsync(client, "old-analytics-member@example.com", "Old Analytics Member");
+        await SeedOldAnalyticsDataAsync(factory, member.User.Id);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.Token);
+
+        var sevenDays = await client.GetFromJsonAsync<AnalyticsSummaryDto>("/api/admin/analytics/summary?range=7d", JsonOptions);
+        var allTime = await client.GetFromJsonAsync<AnalyticsSummaryDto>("/api/admin/analytics/summary?range=all", JsonOptions);
+
+        Assert.Equal("all", allTime!.Range);
+        Assert.Equal(0, sevenDays!.MonitorsCreated);
+        Assert.Equal(0, sevenDays.PageViews);
+        Assert.Equal(0, sevenDays.MonitorChecks);
+        Assert.Equal(1, allTime.MonitorsCreated);
+        Assert.Equal(1, allTime.PageViews);
+        Assert.Equal(1, allTime.MonitorChecks);
+        Assert.Equal(1, allTime.IncidentsOpened);
+        Assert.Equal(1, allTime.NotificationsCreated);
+        Assert.Contains(allTime.MonitorActivity, monitor => monitor.Name == "Old Analytics API" && monitor.CheckCount == 1);
+        Assert.Contains(allTime.NewUsersOverTime, point => point.Count > 0);
+    }
+
     private static async Task<AuthResponse> RegisterAndAuthorizeAsync(HttpClient client, string email, string workspaceName)
     {
         var register = await client.PostAsJsonAsync("/api/auth/register", new
@@ -222,6 +249,62 @@ public sealed class AnalyticsApiTests
             new AnalyticsEvent { EventType = "PageView", Path = "/dashboard", UserId = memberUserId, CreatedAt = now.AddMinutes(-25) },
             new AnalyticsEvent { EventType = "PageView", Path = "/dashboard", UserId = memberUserId, CreatedAt = now.AddMinutes(-20) },
             new AnalyticsEvent { EventType = "PageView", Path = "/status/analytics-member", CreatedAt = now.AddMinutes(-15) });
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task SeedOldAnalyticsDataAsync(AuthApiFactory factory, Guid memberUserId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var old = DateTimeOffset.UtcNow.AddDays(-45);
+        var monitor = new MonitorEntity
+        {
+            Id = Guid.NewGuid(),
+            UserId = memberUserId,
+            Name = "Old Analytics API",
+            Url = "https://example.com/old-health",
+            CurrentStatus = MonitorStatus.Up,
+            CreatedAt = old,
+            UpdatedAt = old
+        };
+
+        db.Monitors.Add(monitor);
+        db.MonitorChecks.Add(new MonitorCheck
+        {
+            MonitorId = monitor.Id,
+            Status = MonitorStatus.Up,
+            StatusCode = 200,
+            ResponseTimeMs = 120,
+            CheckedAt = old
+        });
+        db.Incidents.Add(new Incident
+        {
+            MonitorId = monitor.Id,
+            Status = IncidentStatus.Resolved,
+            StartedStatus = MonitorStatus.Down,
+            ResolvedStatus = MonitorStatus.Up,
+            Title = "Old Analytics API recovered",
+            StartedAt = old,
+            ResolvedAt = old.AddMinutes(10)
+        });
+        db.Notifications.Add(new Notification
+        {
+            UserId = memberUserId,
+            MonitorId = monitor.Id,
+            Type = NotificationType.MonitorRecovered,
+            Title = "Old Analytics API recovered",
+            Message = "Old Analytics API recovered.",
+            DedupKey = $"old-analytics:{Guid.NewGuid():N}",
+            EmailStatus = NotificationEmailStatus.Sent,
+            CreatedAt = old
+        });
+        db.AnalyticsEvents.Add(new AnalyticsEvent
+        {
+            EventType = "PageView",
+            Path = "/dashboard",
+            UserId = memberUserId,
+            CreatedAt = old
+        });
         await db.SaveChangesAsync();
     }
 }

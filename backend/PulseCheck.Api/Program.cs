@@ -881,6 +881,7 @@ static (string Range, DateTimeOffset Since, DateTimeOffset Now) ParseAnalyticsRa
     {
         "24h" => ("24h", now.AddHours(-24), now),
         "30d" => ("30d", now.AddDays(-30), now),
+        "all" or "alltime" or "all-time" => ("all", DateTimeOffset.UnixEpoch, now),
         _ => ("7d", now.AddDays(-7), now)
     };
 }
@@ -1022,6 +1023,11 @@ static IReadOnlyCollection<AnalyticsSeriesPointDto> BuildSignupSeries(
     DateTimeOffset since,
     DateTimeOffset now)
 {
+    if (range == "all")
+    {
+        return BuildAllTimeSignupSeries(signupTimes, now);
+    }
+
     var bucketCount = range == "24h" ? 24 : range == "30d" ? 30 : 7;
     var bucketSize = range == "24h" ? TimeSpan.FromHours(1) : TimeSpan.FromDays(1);
     var firstBucket = range == "24h" ? TruncateToHour(now).AddHours(-(bucketCount - 1)) : TruncateToDay(now).AddDays(-(bucketCount - 1));
@@ -1039,9 +1045,39 @@ static IReadOnlyCollection<AnalyticsSeriesPointDto> BuildSignupSeries(
     return points;
 }
 
+static IReadOnlyCollection<AnalyticsSeriesPointDto> BuildAllTimeSignupSeries(
+    IReadOnlyCollection<DateTimeOffset> signupTimes,
+    DateTimeOffset now)
+{
+    if (signupTimes.Count == 0)
+    {
+        return Array.Empty<AnalyticsSeriesPointDto>();
+    }
+
+    var firstSignup = signupTimes.Min();
+    var firstBucket = TruncateToMonth(firstSignup);
+    var lastBucket = TruncateToMonth(now);
+    var points = new List<AnalyticsSeriesPointDto>();
+
+    for (var start = firstBucket; start <= lastBucket; start = start.AddMonths(1))
+    {
+        var end = start.AddMonths(1);
+        points.Add(new AnalyticsSeriesPointDto(
+            start,
+            signupTimes.Count(timestamp => timestamp >= start && timestamp < end)));
+    }
+
+    return points;
+}
+
 static DateTimeOffset TruncateToHour(DateTimeOffset value)
 {
     return new DateTimeOffset(value.Year, value.Month, value.Day, value.Hour, 0, 0, value.Offset);
+}
+
+static DateTimeOffset TruncateToMonth(DateTimeOffset value)
+{
+    return new DateTimeOffset(value.Year, value.Month, 1, 0, 0, 0, value.Offset);
 }
 
 static DateTimeOffset TruncateToDay(DateTimeOffset value)
