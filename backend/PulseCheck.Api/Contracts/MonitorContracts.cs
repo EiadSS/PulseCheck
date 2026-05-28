@@ -66,6 +66,11 @@ public sealed record MonitorCheckDto(
     string? ErrorMessage,
     DateTimeOffset CheckedAt);
 
+public sealed record MonitorResponseTimePointDto(
+    DateTimeOffset CheckedAt,
+    double ResponseTimeMs,
+    int CheckCount);
+
 public sealed record IncidentDto(
     Guid Id,
     IncidentStatus Status,

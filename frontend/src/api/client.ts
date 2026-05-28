@@ -7,6 +7,7 @@ import type {
   MonitorCheck,
   MonitorDetail,
   MonitorRequest,
+  MonitorResponseTimePoint,
   MonitorSummary,
   Notification,
   NotificationPreferences,
@@ -134,6 +135,9 @@ export const api = {
   },
   checks(id: string, range: '24h' | '7d' | '30d') {
     return request<MonitorCheck[]>(`/api/monitors/${id}/checks?range=${range}`);
+  },
+  responseTimes(id: string, range: '24h' | '7d' | '30d') {
+    return request<MonitorResponseTimePoint[]>(`/api/monitors/${id}/response-times?range=${range}`);
   },
   incidents(id: string) {
     return request<Incident[]>(`/api/monitors/${id}/incidents`);

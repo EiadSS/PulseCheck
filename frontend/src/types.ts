@@ -71,6 +71,12 @@ export interface MonitorCheck {
   checkedAt: string;
 }
 
+export interface MonitorResponseTimePoint {
+  checkedAt: string;
+  responseTimeMs: number;
+  checkCount: number;
+}
+
 export interface Incident {
   id: string;
   status: IncidentStatus;

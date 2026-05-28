@@ -467,6 +467,30 @@ monitors.MapGet("/{id:guid}/checks", async (
     return Results.Ok(checks);
 });
 
+monitors.MapGet("/{id:guid}/response-times", async (
+    Guid id,
+    string? range,
+    ClaimsPrincipal principal,
+    AppDbContext db,
+    CancellationToken cancellationToken) =>
+{
+    var monitor = await FindOwnedMonitorAsync(db, principal.GetUserId(), id, cancellationToken);
+    if (monitor is null)
+    {
+        return Results.NotFound();
+    }
+
+    var now = DateTimeOffset.UtcNow;
+    var since = ParseRange(range, now);
+    var points = await db.MonitorChecks
+        .AsNoTracking()
+        .Where(check => check.MonitorId == id && check.CheckedAt >= since && check.ResponseTimeMs != null)
+        .Select(check => new ResponseTimeSourcePoint(check.CheckedAt, check.ResponseTimeMs!.Value))
+        .ToListAsync(cancellationToken);
+
+    return Results.Ok(BuildResponseTimePoints(points, since, now, pointLimit: 300));
+});
+
 monitors.MapGet("/{id:guid}/incidents", async (
     Guid id,
     ClaimsPrincipal principal,
@@ -1312,13 +1336,53 @@ static UserDto ToUserDto(ApplicationUser user, AdminAccessService adminAccess)
         adminAccess.IsAdmin(user));
 }
 
-static DateTimeOffset ParseRange(string? range)
+static IReadOnlyCollection<MonitorResponseTimePointDto> BuildResponseTimePoints(
+    IReadOnlyCollection<ResponseTimeSourcePoint> sourcePoints,
+    DateTimeOffset since,
+    DateTimeOffset now,
+    int pointLimit)
 {
+    var orderedPoints = sourcePoints
+        .OrderBy(point => point.CheckedAt)
+        .ToList();
+
+    if (orderedPoints.Count <= pointLimit)
+    {
+        return orderedPoints
+            .Select(point => new MonitorResponseTimePointDto(point.CheckedAt, point.ResponseTimeMs, CheckCount: 1))
+            .ToList();
+    }
+
+    var windowTicks = Math.Max(1, (now - since).Ticks);
+    var bucketTicks = Math.Max(1, (long)Math.Ceiling(windowTicks / (double)pointLimit));
+
+    return orderedPoints
+        .GroupBy(point =>
+        {
+            var elapsedTicks = Math.Clamp((point.CheckedAt - since).Ticks, 0, windowTicks);
+            return Math.Min(pointLimit - 1, (int)(elapsedTicks / bucketTicks));
+        })
+        .OrderBy(group => group.Key)
+        .Select(group =>
+        {
+            var bucketMiddleTicks = Math.Min(windowTicks, (group.Key * bucketTicks) + (bucketTicks / 2));
+            return new MonitorResponseTimePointDto(
+                since.AddTicks(bucketMiddleTicks),
+                Math.Round(group.Average(point => point.ResponseTimeMs), 0),
+                group.Count());
+        })
+        .ToList();
+}
+
+static DateTimeOffset ParseRange(string? range, DateTimeOffset? now = null)
+{
+    var referenceTime = now ?? DateTimeOffset.UtcNow;
+
     return range?.ToLowerInvariant() switch
     {
-        "7d" => DateTimeOffset.UtcNow.AddDays(-7),
-        "30d" => DateTimeOffset.UtcNow.AddDays(-30),
-        _ => DateTimeOffset.UtcNow.AddHours(-24)
+        "7d" => referenceTime.AddDays(-7),
+        "30d" => referenceTime.AddDays(-30),
+        _ => referenceTime.AddHours(-24)
     };
 }
 
@@ -1350,3 +1414,5 @@ static MonitorStatus OverallStatus(IReadOnlyCollection<MonitorEntity> monitors)
 public partial class Program
 {
 }
+
+public sealed record ResponseTimeSourcePoint(DateTimeOffset CheckedAt, int ResponseTimeMs);

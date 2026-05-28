@@ -111,6 +111,94 @@ public sealed class AuthApiTests : IClassFixture<AuthApiFactory>
     }
 
     [Fact]
+    public async Task ResponseTimes_ReturnsSparsePointsInTimeOrder()
+    {
+        await RegisterAndAuthorizeAsync("sparse-response-times@example.com", "Sparse Response Times");
+        var create = await CreateMonitorAsync("Sparse API");
+        var monitorId = create.GetProperty("id").GetGuid();
+        var now = DateTimeOffset.UtcNow;
+
+        await SeedMonitorChecksAsync(
+            monitorId,
+            new[]
+            {
+                new MonitorCheck { MonitorId = monitorId, Status = MonitorStatus.Up, ResponseTimeMs = 180, CheckedAt = now.AddHours(-2) },
+                new MonitorCheck { MonitorId = monitorId, Status = MonitorStatus.Up, ResponseTimeMs = 120, CheckedAt = now.AddHours(-1) }
+            });
+
+        var points = await _client.GetFromJsonAsync<List<MonitorResponseTimePointDto>>(
+            $"/api/monitors/{monitorId}/response-times?range=24h");
+
+        Assert.Equal(2, points!.Count);
+        Assert.All(points, point => Assert.Equal(1, point.CheckCount));
+        Assert.True(points[0].CheckedAt < points[1].CheckedAt);
+        Assert.Equal(180, points[0].ResponseTimeMs);
+        Assert.Equal(120, points[1].ResponseTimeMs);
+    }
+
+    [Fact]
+    public async Task ResponseTimes_DownsamplesAcrossSelectedRange()
+    {
+        await RegisterAndAuthorizeAsync("busy-response-times@example.com", "Busy Response Times");
+        var create = await CreateMonitorAsync("Busy API");
+        var monitorId = create.GetProperty("id").GetGuid();
+        var now = DateTimeOffset.UtcNow;
+        var checks = new List<MonitorCheck>();
+
+        for (var index = 0; index < 700; index++)
+        {
+            checks.Add(new MonitorCheck
+            {
+                MonitorId = monitorId,
+                Status = MonitorStatus.Up,
+                ResponseTimeMs = 50 + (index % 40),
+                CheckedAt = now.AddDays(-6.9).AddTicks(TimeSpan.FromDays(6.9).Ticks * index / 699)
+            });
+        }
+
+        for (var index = 0; index < 50; index++)
+        {
+            checks.Add(new MonitorCheck
+            {
+                MonitorId = monitorId,
+                Status = MonitorStatus.Up,
+                ResponseTimeMs = 100 + (index % 30),
+                CheckedAt = now.AddDays(-25).AddHours(index * 2)
+            });
+        }
+
+        await SeedMonitorChecksAsync(monitorId, checks);
+
+        var dayPoints = await _client.GetFromJsonAsync<List<MonitorResponseTimePointDto>>(
+            $"/api/monitors/{monitorId}/response-times?range=24h");
+        var weekPoints = await _client.GetFromJsonAsync<List<MonitorResponseTimePointDto>>(
+            $"/api/monitors/{monitorId}/response-times?range=7d");
+        var monthPoints = await _client.GetFromJsonAsync<List<MonitorResponseTimePointDto>>(
+            $"/api/monitors/{monitorId}/response-times?range=30d");
+
+        Assert.True(dayPoints!.Count <= 300);
+        Assert.True(weekPoints!.Count <= 300);
+        Assert.True(monthPoints!.Count <= 300);
+        Assert.All(weekPoints, point => Assert.True(point.CheckCount >= 1));
+        Assert.True(dayPoints.Min(point => point.CheckedAt) > now.AddHours(-25));
+        Assert.True(weekPoints.Min(point => point.CheckedAt) < now.AddDays(-6));
+        Assert.True(monthPoints.Min(point => point.CheckedAt) < now.AddDays(-20));
+    }
+
+    [Fact]
+    public async Task ResponseTimes_ReturnsNotFoundForOtherUserMonitor()
+    {
+        await RegisterAndAuthorizeAsync("response-owner@example.com", "Response Owner");
+        var create = await CreateMonitorAsync("Owned API");
+        var monitorId = create.GetProperty("id").GetGuid();
+
+        await RegisterAndAuthorizeAsync("response-other@example.com", "Response Other");
+        var response = await _client.GetAsync($"/api/monitors/{monitorId}/response-times?range=24h");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task RunCheckNow_ReturnsValidationProblem_WhenMonitorIsPaused()
     {
         await RegisterAndAuthorizeAsync("paused-check@example.com", "Paused Checks");
@@ -194,6 +282,14 @@ public sealed class AuthApiTests : IClassFixture<AuthApiFactory>
         });
         create.EnsureSuccessStatusCode();
         return await create.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private async Task SeedMonitorChecksAsync(Guid monitorId, IEnumerable<MonitorCheck> checks)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.MonitorChecks.AddRange(checks);
+        await db.SaveChangesAsync();
     }
 
     private async Task<(Guid NotificationId, Guid MonitorId, Guid IncidentId)> SeedLinkedNotificationAsync(Guid userId, bool isRead)

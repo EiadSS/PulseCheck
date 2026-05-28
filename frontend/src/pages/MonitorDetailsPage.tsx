@@ -13,27 +13,29 @@ import {
 import { api } from '../api/client';
 import { SslBadge } from '../components/SslBadge';
 import { StatusBadge } from '../components/StatusBadge';
-import type { Incident, MonitorCheck, MonitorDetail } from '../types';
+import type { Incident, MonitorCheck, MonitorDetail, MonitorResponseTimePoint } from '../types';
 
 type Range = '24h' | '7d' | '30d';
+const recentChecksRange: Range = '30d';
 
 export function MonitorDetailsPage() {
   const { id } = useParams();
   const [monitor, setMonitor] = useState<MonitorDetail | null>(null);
   const [checks, setChecks] = useState<MonitorCheck[]>([]);
+  const [responseTimes, setResponseTimes] = useState<MonitorResponseTimePoint[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [range, setRange] = useState<Range>('24h');
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function load(currentRange = range) {
+  async function loadDetails() {
     if (!id) {
       return;
     }
 
     const [monitorData, checkData, incidentData] = await Promise.all([
       api.monitor(id),
-      api.checks(id, currentRange),
+      api.checks(id, recentChecksRange),
       api.incidents(id)
     ]);
     setMonitor(monitorData);
@@ -41,25 +43,30 @@ export function MonitorDetailsPage() {
     setIncidents(incidentData);
   }
 
+  async function loadResponseTimes(currentRange = range) {
+    if (!id) {
+      return;
+    }
+
+    setResponseTimes(await api.responseTimes(id, currentRange));
+  }
+
   useEffect(() => {
-    load().catch((err) => setError(err instanceof Error ? err.message : 'Unable to load monitor.'));
+    loadDetails().catch((err) => setError(err instanceof Error ? err.message : 'Unable to load monitor.'));
   }, [id]);
 
   useEffect(() => {
-    load(range).catch((err) => setError(err instanceof Error ? err.message : 'Unable to load checks.'));
-  }, [range]);
+    loadResponseTimes(range).catch((err) => setError(err instanceof Error ? err.message : 'Unable to load response times.'));
+  }, [id, range]);
 
   const chartData = useMemo(
     () =>
-      [...checks]
-        .reverse()
-        .filter((check) => check.responseTimeMs !== null && check.responseTimeMs !== undefined)
-        .map((check) => ({
-          time: new Date(check.checkedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
-          responseTimeMs: check.responseTimeMs,
-          status: check.status
-        })),
-    [checks]
+      responseTimes.map((point) => ({
+        time: new Date(point.checkedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+        responseTimeMs: point.responseTimeMs,
+        checkCount: point.checkCount
+      })),
+    [responseTimes]
   );
 
   if (error) {
@@ -81,7 +88,8 @@ export function MonitorDetailsPage() {
       await api.pauseMonitor(monitor.id);
     }
 
-    await load();
+    await loadDetails();
+    await loadResponseTimes(range);
   }
 
   async function runCheckNow() {
@@ -94,7 +102,7 @@ export function MonitorDetailsPage() {
 
     try {
       await api.runMonitorCheck(monitor.id);
-      await load(range);
+      await Promise.all([loadDetails(), loadResponseTimes(range)]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to run check.');
     } finally {
@@ -196,15 +204,21 @@ export function MonitorDetailsPage() {
           </div>
         </div>
         <div className="mt-5 h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="time" minTickGap={32} tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} unit=" ms" />
-              <Tooltip />
-              <Line type="monotone" dataKey="responseTimeMs" stroke="#0284c7" strokeWidth={2.5} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
+          {chartData.length === 0 ? (
+            <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 text-sm font-medium text-slate-500">
+              No response-time data for this range yet.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="time" minTickGap={32} tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} unit=" ms" />
+                <Tooltip />
+                <Line type="monotone" dataKey="responseTimeMs" stroke="#0284c7" strokeWidth={2.5} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </section>
 
