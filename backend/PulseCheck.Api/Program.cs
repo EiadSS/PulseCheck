@@ -580,7 +580,8 @@ analytics.MapPost("/events", async (
     request = request with
     {
         EventType = request.EventType?.Trim() ?? string.Empty,
-        Path = NormalizeAnalyticsPath(request.Path ?? string.Empty)
+        Path = NormalizeAnalyticsPath(request.Path ?? string.Empty),
+        VisitorId = NormalizeAnalyticsVisitorId(request.VisitorId)
     };
 
     var validation = ValidateRequest(request);
@@ -602,6 +603,7 @@ analytics.MapPost("/events", async (
         UserId = principal.Identity?.IsAuthenticated == true ? principal.GetUserId() : null,
         EventType = "PageView",
         Path = request.Path,
+        VisitorId = request.VisitorId,
         CreatedAt = DateTimeOffset.UtcNow
     });
     await db.SaveChangesAsync(cancellationToken);
@@ -874,6 +876,18 @@ static string NormalizeAnalyticsPath(string path)
     return path.Length > 300 ? path[..300] : path;
 }
 
+static string? NormalizeAnalyticsVisitorId(string? visitorId)
+{
+    visitorId = visitorId?.Trim();
+
+    if (string.IsNullOrWhiteSpace(visitorId))
+    {
+        return null;
+    }
+
+    return visitorId.Length > 80 ? visitorId[..80] : visitorId;
+}
+
 static (string Range, DateTimeOffset Since, DateTimeOffset Now) ParseAnalyticsRange(string? range)
 {
     var now = DateTimeOffset.UtcNow;
@@ -903,6 +917,16 @@ static async Task<AnalyticsSummaryDto> BuildAnalyticsSummaryAsync(
         .Where(analyticsEvent => analyticsEvent.UserId != null)
         .Select(analyticsEvent => analyticsEvent.UserId)
         .Distinct()
+        .CountAsync(cancellationToken);
+    var uniqueVisitors = await pageViewEvents
+        .Where(analyticsEvent => analyticsEvent.VisitorId != null)
+        .Select(analyticsEvent => analyticsEvent.VisitorId)
+        .Distinct()
+        .CountAsync(cancellationToken);
+    var anonymousVisitors = await pageViewEvents
+        .Where(analyticsEvent => analyticsEvent.VisitorId != null)
+        .GroupBy(analyticsEvent => analyticsEvent.VisitorId)
+        .Where(group => !group.Any(analyticsEvent => analyticsEvent.UserId != null))
         .CountAsync(cancellationToken);
     var totalMonitors = await db.Monitors.AsNoTracking().CountAsync(cancellationToken);
     var monitorsCreated = await db.Monitors.AsNoTracking().CountAsync(monitor => monitor.CreatedAt >= since, cancellationToken);
@@ -999,6 +1023,8 @@ static async Task<AnalyticsSummaryDto> BuildAnalyticsSummaryAsync(
         totalUsers,
         newUsers,
         activeUsers,
+        uniqueVisitors,
+        anonymousVisitors,
         totalMonitors,
         monitorsCreated,
         totalUsers == 0 ? 0 : Math.Round((double)totalMonitors / totalUsers, 2),
@@ -1263,14 +1289,18 @@ static async Task ApplySchemaPatchesAsync(AppDbContext db)
             "UserId" uuid NULL,
             "EventType" character varying(80) NOT NULL,
             "Path" character varying(300) NOT NULL,
+            "VisitorId" character varying(80) NULL,
             "CreatedAt" timestamp with time zone NOT NULL,
             CONSTRAINT "PK_AnalyticsEvents" PRIMARY KEY ("Id"),
             CONSTRAINT "FK_AnalyticsEvents_AspNetUsers_UserId" FOREIGN KEY ("UserId") REFERENCES "AspNetUsers" ("Id") ON DELETE SET NULL
         );
 
+        ALTER TABLE "AnalyticsEvents" ADD COLUMN IF NOT EXISTS "VisitorId" character varying(80) NULL;
+
         CREATE INDEX IF NOT EXISTS "IX_AnalyticsEvents_EventType_CreatedAt" ON "AnalyticsEvents" ("EventType", "CreatedAt");
         CREATE INDEX IF NOT EXISTS "IX_AnalyticsEvents_Path_CreatedAt" ON "AnalyticsEvents" ("Path", "CreatedAt");
         CREATE INDEX IF NOT EXISTS "IX_AnalyticsEvents_UserId_CreatedAt" ON "AnalyticsEvents" ("UserId", "CreatedAt");
+        CREATE INDEX IF NOT EXISTS "IX_AnalyticsEvents_VisitorId_CreatedAt" ON "AnalyticsEvents" ("VisitorId", "CreatedAt");
         """);
 }
 

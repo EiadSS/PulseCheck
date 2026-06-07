@@ -1,4 +1,4 @@
-import { Activity, AlertCircle, BarChart3, Clock3, Mail, MonitorCheck, Users } from 'lucide-react';
+import { Activity, AlertCircle, BarChart3, Clock3, Eye, Mail, MonitorCheck, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ApiError, api } from '../api/client';
@@ -94,15 +94,18 @@ export function AnalyticsPage() {
         <div className="rounded-lg border border-slate-200 bg-white p-8 text-sm font-medium text-slate-500">Loading analytics...</div>
       ) : summary ? (
         <>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <MetricCard label="Total users" value={summary.totalUsers} icon={Users} tone="sky" />
+            <MetricCard label="New users" value={summary.newUsers} icon={Users} tone="sky" />
             <MetricCard label="Active users" value={summary.activeUsers} icon={Activity} tone="emerald" />
-            <MetricCard label="Page views" value={summary.pageViews} icon={BarChart3} tone="slate" />
-            <MetricCard label="Monitors" value={summary.totalMonitors} icon={MonitorCheck} tone="amber" />
+            <MetricCard label="Unique visitors" value={summary.uniqueVisitors} icon={Eye} tone="slate" />
+            <MetricCard label="Anonymous visitors" value={summary.anonymousVisitors} icon={Eye} tone="amber" />
           </div>
+          <p className="text-sm text-slate-500">Users are accounts. Visitors are unique browsers counted with a first-party local id.</p>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="New users" value={summary.newUsers} icon={Users} tone="sky" />
+            <MetricCard label="Page views" value={summary.pageViews} icon={BarChart3} tone="slate" />
+            <MetricCard label="Monitors" value={summary.totalMonitors} icon={MonitorCheck} tone="amber" />
             <MetricCard label="Monitors created" value={summary.monitorsCreated} icon={MonitorCheck} tone="emerald" />
             <MetricCard label="Public status views" value={summary.publicStatusPageViews} icon={BarChart3} tone="slate" />
             <MetricCard

@@ -100,9 +100,11 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
         {
             entity.Property(analyticsEvent => analyticsEvent.EventType).HasMaxLength(80).IsRequired();
             entity.Property(analyticsEvent => analyticsEvent.Path).HasMaxLength(300).IsRequired();
+            entity.Property(analyticsEvent => analyticsEvent.VisitorId).HasMaxLength(80);
             entity.HasIndex(analyticsEvent => new { analyticsEvent.EventType, analyticsEvent.CreatedAt });
             entity.HasIndex(analyticsEvent => new { analyticsEvent.Path, analyticsEvent.CreatedAt });
             entity.HasIndex(analyticsEvent => new { analyticsEvent.UserId, analyticsEvent.CreatedAt });
+            entity.HasIndex(analyticsEvent => new { analyticsEvent.VisitorId, analyticsEvent.CreatedAt });
             entity.HasOne(analyticsEvent => analyticsEvent.User)
                 .WithMany()
                 .HasForeignKey(analyticsEvent => analyticsEvent.UserId)

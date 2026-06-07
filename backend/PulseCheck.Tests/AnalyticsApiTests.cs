@@ -55,13 +55,13 @@ public sealed class AnalyticsApiTests
         await using var factory = new AuthApiFactory();
         var client = factory.CreateClient();
 
-        var anonymous = await client.PostAsJsonAsync("/api/analytics/events", new AnalyticsEventRequest("PageView", "/"));
+        var anonymous = await client.PostAsJsonAsync("/api/analytics/events", new AnalyticsEventRequest("PageView", "/", "visitor-anon"));
         Assert.Equal(HttpStatusCode.NoContent, anonymous.StatusCode);
 
         var auth = await RegisterAndAuthorizeAsync(client, "event-user@example.com", "Event User");
         var authenticated = await client.PostAsJsonAsync(
             "/api/analytics/events",
-            new AnalyticsEventRequest("PageView", "/dashboard?token=secret#fragment"));
+            new AnalyticsEventRequest("PageView", "/dashboard?token=secret#fragment", "visitor-user"));
         Assert.Equal(HttpStatusCode.NoContent, authenticated.StatusCode);
 
         using var scope = factory.Services.CreateScope();
@@ -69,8 +69,8 @@ public sealed class AnalyticsApiTests
         var events = db.AnalyticsEvents.ToList();
 
         Assert.Equal(2, events.Count);
-        Assert.Contains(events, analyticsEvent => analyticsEvent.Path == "/" && analyticsEvent.UserId is null);
-        Assert.Contains(events, analyticsEvent => analyticsEvent.Path == "/dashboard" && analyticsEvent.UserId == auth.User.Id);
+        Assert.Contains(events, analyticsEvent => analyticsEvent.Path == "/" && analyticsEvent.UserId is null && analyticsEvent.VisitorId == "visitor-anon");
+        Assert.Contains(events, analyticsEvent => analyticsEvent.Path == "/dashboard" && analyticsEvent.UserId == auth.User.Id && analyticsEvent.VisitorId == "visitor-user");
     }
 
     [Fact]
@@ -91,10 +91,12 @@ public sealed class AnalyticsApiTests
         Assert.Equal(2, summary.TotalUsers);
         Assert.Equal(2, summary.NewUsers);
         Assert.Equal(1, summary.ActiveUsers);
+        Assert.Equal(3, summary.UniqueVisitors);
+        Assert.Equal(2, summary.AnonymousVisitors);
         Assert.Equal(1, summary.TotalMonitors);
         Assert.Equal(1, summary.MonitorsCreated);
         Assert.Equal(0.5, summary.AverageMonitorsPerUser);
-        Assert.Equal(4, summary.PageViews);
+        Assert.Equal(5, summary.PageViews);
         Assert.Equal(1, summary.PublicStatusPageViews);
         Assert.Equal(2, summary.MonitorChecks);
         Assert.Equal(200, summary.AverageResponseTimeMs);
@@ -147,7 +149,9 @@ public sealed class AnalyticsApiTests
         Assert.Equal(0, sevenDays.PageViews);
         Assert.Equal(0, sevenDays.MonitorChecks);
         Assert.Equal(1, allTime.MonitorsCreated);
-        Assert.Equal(1, allTime.PageViews);
+        Assert.Equal(3, allTime.PageViews);
+        Assert.Equal(2, allTime.UniqueVisitors);
+        Assert.Equal(1, allTime.AnonymousVisitors);
         Assert.Equal(1, allTime.MonitorChecks);
         Assert.Equal(1, allTime.IncidentsOpened);
         Assert.Equal(1, allTime.NotificationsCreated);
@@ -245,10 +249,11 @@ public sealed class AnalyticsApiTests
                 CreatedAt = now.AddMinutes(-5)
             });
         db.AnalyticsEvents.AddRange(
-            new AnalyticsEvent { EventType = "PageView", Path = "/", CreatedAt = now.AddMinutes(-30) },
-            new AnalyticsEvent { EventType = "PageView", Path = "/dashboard", UserId = memberUserId, CreatedAt = now.AddMinutes(-25) },
-            new AnalyticsEvent { EventType = "PageView", Path = "/dashboard", UserId = memberUserId, CreatedAt = now.AddMinutes(-20) },
-            new AnalyticsEvent { EventType = "PageView", Path = "/status/analytics-member", CreatedAt = now.AddMinutes(-15) });
+            new AnalyticsEvent { EventType = "PageView", Path = "/", VisitorId = "visitor-anon", CreatedAt = now.AddMinutes(-35) },
+            new AnalyticsEvent { EventType = "PageView", Path = "/", VisitorId = "visitor-anon", CreatedAt = now.AddMinutes(-30) },
+            new AnalyticsEvent { EventType = "PageView", Path = "/dashboard", VisitorId = "visitor-member", UserId = memberUserId, CreatedAt = now.AddMinutes(-25) },
+            new AnalyticsEvent { EventType = "PageView", Path = "/dashboard", VisitorId = "visitor-member", UserId = memberUserId, CreatedAt = now.AddMinutes(-20) },
+            new AnalyticsEvent { EventType = "PageView", Path = "/status/analytics-member", VisitorId = "visitor-status", CreatedAt = now.AddMinutes(-15) });
         await db.SaveChangesAsync();
     }
 
@@ -298,13 +303,28 @@ public sealed class AnalyticsApiTests
             EmailStatus = NotificationEmailStatus.Sent,
             CreatedAt = old
         });
-        db.AnalyticsEvents.Add(new AnalyticsEvent
-        {
-            EventType = "PageView",
-            Path = "/dashboard",
-            UserId = memberUserId,
-            CreatedAt = old
-        });
+        db.AnalyticsEvents.AddRange(
+            new AnalyticsEvent
+            {
+                EventType = "PageView",
+                Path = "/dashboard",
+                VisitorId = "old-member-visitor",
+                UserId = memberUserId,
+                CreatedAt = old
+            },
+            new AnalyticsEvent
+            {
+                EventType = "PageView",
+                Path = "/",
+                VisitorId = "old-anonymous-visitor",
+                CreatedAt = old.AddMinutes(5)
+            },
+            new AnalyticsEvent
+            {
+                EventType = "PageView",
+                Path = "/legacy",
+                CreatedAt = old.AddMinutes(10)
+            });
         await db.SaveChangesAsync();
     }
 }

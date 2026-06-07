@@ -27,6 +27,9 @@ describe('AnalyticsPage', () => {
     expect(await screen.findByRole('heading', { name: /^analytics$/i })).toBeInTheDocument();
     expect(screen.getByText('Total users')).toBeInTheDocument();
     expect(screen.getByText('Active users')).toBeInTheDocument();
+    expect(screen.getByText('Unique visitors')).toBeInTheDocument();
+    expect(screen.getByText('Anonymous visitors')).toBeInTheDocument();
+    expect(screen.getByText(/Visitors are unique browsers/i)).toBeInTheDocument();
     expect(screen.getByText('Page views')).toBeInTheDocument();
     expect(screen.getByText('Email alert health')).toBeInTheDocument();
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
@@ -97,6 +100,8 @@ const summary = {
   totalUsers: 3,
   newUsers: 2,
   activeUsers: 1,
+  uniqueVisitors: 5,
+  anonymousVisitors: 3,
   totalMonitors: 4,
   monitorsCreated: 2,
   averageMonitorsPerUser: 1.33,

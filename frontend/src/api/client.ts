@@ -148,7 +148,7 @@ export const api = {
   sloSummary() {
     return request<SloSummary>('/api/dashboard/slo');
   },
-  trackAnalyticsEvent(payload: { eventType: 'PageView'; path: string }) {
+  trackAnalyticsEvent(payload: { eventType: 'PageView'; path: string; visitorId?: string | null }) {
     return request<void>('/api/analytics/events', {
       method: 'POST',
       body: JSON.stringify(payload)

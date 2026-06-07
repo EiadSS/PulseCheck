@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AnalyticsTracker } from './AnalyticsTracker';
+import { AnalyticsTracker, getOrCreateVisitorId } from './AnalyticsTracker';
 
 const apiMock = vi.hoisted(() => ({
   trackAnalyticsEvent: vi.fn()
@@ -25,6 +25,7 @@ describe('AnalyticsTracker', () => {
     vi.clearAllMocks();
     authState.user = { id: 'user-1' };
     authState.isLoading = false;
+    localStorage.clear();
     apiMock.trackAnalyticsEvent.mockResolvedValue(undefined);
   });
 
@@ -42,14 +43,30 @@ describe('AnalyticsTracker', () => {
     );
 
     await waitFor(() => {
-      expect(apiMock.trackAnalyticsEvent).toHaveBeenCalledWith({ eventType: 'PageView', path: '/dashboard' });
+      expect(apiMock.trackAnalyticsEvent).toHaveBeenCalledWith({
+        eventType: 'PageView',
+        path: '/dashboard',
+        visitorId: expect.any(String)
+      });
     });
 
     await user.click(screen.getByRole('link', { name: /analytics/i }));
 
     await waitFor(() => {
-      expect(apiMock.trackAnalyticsEvent).toHaveBeenCalledWith({ eventType: 'PageView', path: '/analytics' });
+      expect(apiMock.trackAnalyticsEvent).toHaveBeenCalledWith({
+        eventType: 'PageView',
+        path: '/analytics',
+        visitorId: expect.any(String)
+      });
     });
+  });
+
+  it('creates and reuses a first-party visitor id', () => {
+    const visitorId = getOrCreateVisitorId();
+
+    expect(visitorId).toEqual(expect.any(String));
+    expect(getOrCreateVisitorId()).toBe(visitorId);
+    expect(localStorage.getItem('pulsecheck.visitorId')).toBe(visitorId);
   });
 
   it('does not record the authenticated root redirect as a page view', async () => {
@@ -80,7 +97,11 @@ describe('AnalyticsTracker', () => {
     );
 
     await waitFor(() => {
-      expect(apiMock.trackAnalyticsEvent).toHaveBeenCalledWith({ eventType: 'PageView', path: '/' });
+      expect(apiMock.trackAnalyticsEvent).toHaveBeenCalledWith({
+        eventType: 'PageView',
+        path: '/',
+        visitorId: expect.any(String)
+      });
     });
   });
 

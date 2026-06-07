@@ -5,7 +5,8 @@ namespace PulseCheck.Api.Contracts;
 
 public sealed record AnalyticsEventRequest(
     [property: Required, MaxLength(80)] string EventType,
-    [property: Required, MaxLength(300)] string Path);
+    [property: Required, MaxLength(300)] string Path,
+    [property: MaxLength(80)] string? VisitorId = null);
 
 public sealed record AnalyticsSummaryDto(
     string Range,
@@ -14,6 +15,8 @@ public sealed record AnalyticsSummaryDto(
     int TotalUsers,
     int NewUsers,
     int ActiveUsers,
+    int UniqueVisitors,
+    int AnonymousVisitors,
     int TotalMonitors,
     int MonitorsCreated,
     double AverageMonitorsPerUser,

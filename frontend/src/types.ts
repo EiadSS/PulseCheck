@@ -188,6 +188,8 @@ export interface AnalyticsSummary {
   totalUsers: number;
   newUsers: number;
   activeUsers: number;
+  uniqueVisitors: number;
+  anonymousVisitors: number;
   totalMonitors: number;
   monitorsCreated: number;
   averageMonitorsPerUser: number;
